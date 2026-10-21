@@ -22,6 +22,11 @@ ALL_GAS_EV_HYBRID_COMBOS = [
   {"GAS_MSG": ("ACCELERATOR_ALT", "ACCELERATOR_PEDAL"), "SCC_BUS": 2, "SAFETY_PARAM": HyundaiSafetyFlags.HYBRID_GAS | HyundaiSafetyFlags.CAMERA_SCC},
 ]
 
+# FrogPilot variables
+# CCNC cars are all camera SCC with LFA steering
+CAMERA_SCC_CCNC_COMBOS = [{**combo, "SAFETY_PARAM": combo["SAFETY_PARAM"] | HyundaiFrogPilotSafetyFlags.CCNC}
+                          for combo in ALL_GAS_EV_HYBRID_COMBOS[3:]]
+
 
 class TestHyundaiCanfdBase(HyundaiButtonBase, common.CarSafetyTest, common.DriverTorqueSteeringSafetyTest, common.SteerRequestCutSafetyTest):
 
@@ -296,6 +301,55 @@ class TestHyundaiCanfdLFASteeringLongAltButtons(TestHyundaiCanfdLFASteeringLongB
 
 
 # FrogPilot variables
+class HyundaiCanfdCCNCTest:
+  # CCNC cars send the cluster HUD messages from openpilot, so they get their own TX list and relay checks.
+  # CCNC_0x161/0x162 are blocked from the camera, MDPS and 0x7C4 are blocked from the camera's bus
+  def test_ccnc_tx_msgs(self):
+    for msg, bus in (("CCNC_0x161", 0), ("CCNC_0x162", 0), ("MDPS", 2)):
+      self.assertTrue(self._tx(self.packer.make_can_msg_safety(msg, bus, {})))
+    self.assertTrue(self._tx(common.make_msg(2, 0x7C4)))
+
+  def test_ccnc_param_required(self):
+    # without the CCNC param, the cluster messages must not be allowed
+    safety_param = self.SAFETY_PARAM & ~HyundaiFrogPilotSafetyFlags.CCNC
+    self.safety.set_safety_hooks(CarParams.SafetyModel.hyundaiCanfd, (HyundaiSafetyFlags.LONG if self.LONG else 0) | safety_param)
+    self.safety.init_tests()
+    for msg in ("CCNC_0x161", "CCNC_0x162"):
+      self.assertFalse(self._tx(self.packer.make_can_msg_safety(msg, 0, {})))
+
+
+@parameterized_class(CAMERA_SCC_CCNC_COMBOS)
+class TestHyundaiCanfdLFASteeringCCNC(HyundaiCanfdCCNCTest, TestHyundaiCanfdLFASteeringBase):
+  LONG = False
+
+  TX_MSGS = [[0x12A, 0], [0x1E0, 0], [0x1CF, 2], [0x7C4, 2]]
+  RELAY_MALFUNCTION_ADDRS = {0: (0x12A, 0x1E0, 0x161, 0x162), 2: (0x7C4, 0xEA)}
+  FWD_BLACKLISTED_ADDRS = {2: [0x12A, 0x1E0, 0x161, 0x162], 0: [0x7C4, 0xEA]}
+
+  @classmethod
+  def setUpClass(cls):
+    if cls.__name__ == "TestHyundaiCanfdLFASteeringCCNC":
+      cls.packer = None
+      cls.safety = None
+      raise unittest.SkipTest
+
+
+@parameterized_class(CAMERA_SCC_CCNC_COMBOS)
+class TestHyundaiCanfdLFASteeringLongCCNC(HyundaiCanfdCCNCTest, TestHyundaiCanfdLFASteeringLongBase):
+  LONG = True
+
+  TX_MSGS = [[0x12A, 0], [0x1E0, 0], [0x1CF, 2], [0x7C4, 2], [0x1A0, 0]]
+  RELAY_MALFUNCTION_ADDRS = {0: (0x12A, 0x1E0, 0x161, 0x162, 0x1A0), 2: (0x7C4, 0xEA)}
+  FWD_BLACKLISTED_ADDRS = {2: [0x12A, 0x1E0, 0x161, 0x162, 0x1A0], 0: [0x7C4, 0xEA]}
+
+  @classmethod
+  def setUpClass(cls):
+    if cls.__name__ == "TestHyundaiCanfdLFASteeringLongCCNC":
+      cls.packer = None
+      cls.safety = None
+      raise unittest.SkipTest
+
+
 class TestHyundaiCanfdLKASteeringEVTacoTuneHack(TestHyundaiCanfdLKASteeringEV):
   # The tests run at standstill, so these are the low speed limits
 

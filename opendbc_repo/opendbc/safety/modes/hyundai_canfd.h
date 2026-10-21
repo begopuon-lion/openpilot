@@ -254,6 +254,7 @@ static safety_config hyundai_canfd_init(uint16_t param) {
 
   // FrogPilot variables
   const uint16_t HYUNDAI_PARAM_CANFD_TACO_TUNE_HACK = 2048;
+  const uint16_t HYUNDAI_PARAM_CCNC = 4096;
 
   static const CanMsg HYUNDAI_CANFD_LKA_STEERING_TX_MSGS[] = {
     HYUNDAI_CANFD_LKA_STEERING_COMMON_TX_MSGS(0, 1)
@@ -298,6 +299,17 @@ static safety_config hyundai_canfd_init(uint16_t param) {
     HYUNDAI_CANFD_SCC_CONTROL_COMMON_TX_MSGS(0, (longitudinal)) \
     {0x160, 0, 16, .check_relay = (longitudinal)}, /* ADRV_0x160 */ \
 
+  // CCNC cars: the cluster HUD messages (CCNC_0x161/0x162) are rewritten by us instead of ADRV_0x160.
+  // MDPS and 0x7C4 are only listed on bus 2 so they are blocked from reaching the camera
+#define HYUNDAI_CANFD_LFA_STEERING_CAMERA_SCC_CCNC_TX_MSGS(longitudinal) \
+    HYUNDAI_CANFD_CRUISE_BUTTON_TX_MSGS(2) \
+    HYUNDAI_CANFD_LFA_STEERING_COMMON_TX_MSGS(0) \
+    HYUNDAI_CANFD_SCC_CONTROL_COMMON_TX_MSGS(0, (longitudinal)) \
+    {0x161, 0, 32, .check_relay = true}, /* CCNC_0x161 */ \
+    {0x162, 0, 32, .check_relay = true}, /* CCNC_0x162 */ \
+    {0x7C4, 2, 8, .check_relay = true}, /* 0x7C4 */ \
+    {0xEA, 2, 24, .check_relay = true}, /* MDPS */ \
+
   hyundai_common_init(param);
 
   gen_crc_lookup_table_16(0x1021, hyundai_canfd_crc_lut);
@@ -306,6 +318,7 @@ static safety_config hyundai_canfd_init(uint16_t param) {
 
   // FrogPilot variables
   hyundai_canfd_taco_tune_hack = GET_FLAG(param, HYUNDAI_PARAM_CANFD_TACO_TUNE_HACK);
+  const bool hyundai_ccnc = GET_FLAG(param, HYUNDAI_PARAM_CCNC);
 
   safety_config ret;
   if (hyundai_longitudinal) {
@@ -330,6 +343,10 @@ static safety_config hyundai_canfd_init(uint16_t param) {
         HYUNDAI_CANFD_LFA_STEERING_CAMERA_SCC_TX_MSGS(true)
       };
 
+      static CanMsg hyundai_canfd_lfa_steering_camera_scc_ccnc_tx_msgs[] = {
+        HYUNDAI_CANFD_LFA_STEERING_CAMERA_SCC_CCNC_TX_MSGS(true)
+      };
+
       if (hyundai_canfd_alt_buttons) {
         SET_RX_CHECKS(hyundai_canfd_alt_buttons_long_rx_checks, ret);
       } else {
@@ -337,7 +354,11 @@ static safety_config hyundai_canfd_init(uint16_t param) {
       }
 
       if (hyundai_camera_scc) {
-        SET_TX_MSGS(hyundai_canfd_lfa_steering_camera_scc_tx_msgs, ret);
+        if (hyundai_ccnc) {
+          SET_TX_MSGS(hyundai_canfd_lfa_steering_camera_scc_ccnc_tx_msgs, ret);
+        } else {
+          SET_TX_MSGS(hyundai_canfd_lfa_steering_camera_scc_tx_msgs, ret);
+        }
       } else {
         SET_TX_MSGS(HYUNDAI_CANFD_LFA_STEERING_LONG_TX_MSGS, ret);
       }
@@ -398,7 +419,15 @@ static safety_config hyundai_canfd_init(uint16_t param) {
         HYUNDAI_CANFD_LFA_STEERING_CAMERA_SCC_TX_MSGS(false)
       };
 
-      SET_TX_MSGS(hyundai_canfd_lfa_steering_camera_scc_tx_msgs, ret);
+      static CanMsg hyundai_canfd_lfa_steering_camera_scc_ccnc_tx_msgs[] = {
+        HYUNDAI_CANFD_LFA_STEERING_CAMERA_SCC_CCNC_TX_MSGS(false)
+      };
+
+      if (hyundai_ccnc) {
+        SET_TX_MSGS(hyundai_canfd_lfa_steering_camera_scc_ccnc_tx_msgs, ret);
+      } else {
+        SET_TX_MSGS(hyundai_canfd_lfa_steering_camera_scc_tx_msgs, ret);
+      }
 
       if (hyundai_canfd_alt_buttons) {
         SET_RX_CHECKS(hyundai_canfd_alt_buttons_rx_checks, ret);

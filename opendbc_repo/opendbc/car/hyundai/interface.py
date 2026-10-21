@@ -2,7 +2,7 @@ from opendbc.car import Bus, get_safety_config, structs, uds
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, \
                                                    CANFD_UNSUPPORTED_LONGITUDINAL_CAR, \
-                                                   UNSUPPORTED_LONGITUDINAL_CAR, HyundaiSafetyFlags
+                                                   UNSUPPORTED_LONGITUDINAL_CAR, HyundaiSafetyFlags, HyundaiFrogPilotSafetyFlags
 from opendbc.car.hyundai.radar_interface import RADAR_START_ADDR
 from opendbc.car.interfaces import CarInterfaceBase
 from opendbc.car.disable_ecu import disable_ecu
@@ -80,6 +80,8 @@ class CarInterface(CarInterfaceBase):
         ret.safetyConfigs[-1].safetyParam |= HyundaiSafetyFlags.CANFD_ALT_BUTTONS.value
       if ret.flags & HyundaiFlags.CANFD_CAMERA_SCC:
         ret.safetyConfigs[-1].safetyParam |= HyundaiSafetyFlags.CAMERA_SCC.value
+      if ret.flags & HyundaiFlags.CCNC and not ret.flags & HyundaiFlags.CANFD_LKA_STEERING:
+        ret.safetyConfigs[-1].safetyParam |= HyundaiFrogPilotSafetyFlags.CCNC.value
 
     else:
       # Shared configuration for non CAN-FD cars

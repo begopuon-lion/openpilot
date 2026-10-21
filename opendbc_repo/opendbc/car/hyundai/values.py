@@ -81,6 +81,7 @@ class HyundaiSafetyFlags(IntFlag):
 class HyundaiFrogPilotSafetyFlags(IntFlag):
   HAS_LDA_BUTTON = 1024
   TACO_TUNE_HACK = 2048
+  CCNC = 4096  # SunnyPilot uses 1024 for this, which FrogPilot already uses for HAS_LDA_BUTTON
 
 
 class HyundaiFlags(IntFlag):
@@ -140,6 +141,10 @@ class HyundaiFlags(IntFlag):
   FCEV = 2 ** 25
 
   ALT_LIMITS_2 = 2 ** 26
+
+  # Connected Car Navigation Cockpit (CCNC) cluster. The camera also sends the cluster HUD messages
+  # (CCNC_0x161/0x162), so openpilot has to forward and edit them instead of using LFAHDA_CLUSTER
+  CCNC = 2 ** 27
 
 
 @dataclass
@@ -318,6 +323,11 @@ class CAR(Platforms):
     CarSpecs(mass=1513, wheelbase=2.84, steerRatio=13.27 * 1.15, tireStiffnessFactor=0.65),  # 15% higher at the center seems reasonable
     flags=HyundaiFlags.MANDO_RADAR | HyundaiFlags.CHECKSUM_CRC8,
   )
+  HYUNDAI_SONATA_2024 = HyundaiCanFDPlatformConfig(
+    [HyundaiCarDocs("Hyundai Sonata (without HDA II) 2024-26", car_parts=CarParts.common([CarHarness.hyundai_a]))],
+    CarSpecs(mass=1513, wheelbase=2.84, steerRatio=12.81),  # mass carried over from the 2020-23 Sonata
+    flags=HyundaiFlags.CCNC,
+  )
   HYUNDAI_SONATA_LF = HyundaiPlatformConfig(
     [HyundaiCarDocs("Hyundai Sonata 2018-19", car_parts=CarParts.common([CarHarness.hyundai_e]))],
     CarSpecs(mass=1536, wheelbase=2.804, steerRatio=13.27 * 1.15),  # 15% higher at the center seems reasonable
@@ -352,6 +362,11 @@ class CAR(Platforms):
     [HyundaiCarDocs("Hyundai Sonata Hybrid 2020-23", "All", car_parts=CarParts.common([CarHarness.hyundai_a]))],
     HYUNDAI_SONATA.specs,
     flags=HyundaiFlags.MANDO_RADAR | HyundaiFlags.CHECKSUM_CRC8 | HyundaiFlags.HYBRID,
+  )
+  HYUNDAI_SONATA_HEV_2024 = HyundaiCanFDPlatformConfig(
+    [HyundaiCarDocs("Hyundai Sonata Hybrid (without HDA II) 2024-26", car_parts=CarParts.common([CarHarness.hyundai_a]))],
+    CarSpecs(mass=1513, wheelbase=2.84, steerRatio=13.27),  # mass carried over from the 2020-23 Sonata
+    flags=HyundaiFlags.CCNC,
   )
   HYUNDAI_IONIQ_5 = HyundaiCanFDPlatformConfig(
     [
